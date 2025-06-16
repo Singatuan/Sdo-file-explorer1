@@ -1,1 +1,78 @@
+<!DOCTYPE html>
+<html>
+<dependencies {
+    implementation "androidx.compose.ui:ui:1.5.0"
+    implementation "androidx.compose.material3:material3:1.1.1"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.1"
+    implementation "androidx.activity:activity-compose:1.7.2"
+}
+    class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            FileExplorerApp()
+        }
+    }
+}
+@Composable
+fun FileExplorerApp() {
+    val rootPath = remember { Environment.getExternalStorageDirectory() }
+var currentPath by remember { mutableStateOf(rootPath) }
+    val files = currentPath.listFiles()?.sortedWith(compareBy({ !it.isDirectory }, { it.name })) ?: emptyList()
 
+    Surface(modifier = Modifier.fillMaxSize()) {
+        Column {
+            TopAppBar(title = { Text(text = currentPath.name) })
+
+            LazyColumn {
+                items(files) { file ->
+                    ListItem(
+                        headlineContent = { Text(file.name) },
+                        leadingContent = {
+                            Icon(
+                                imageVector = if (file.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
+                                contentDescription = null
+                            )
+                        },
+                        modifier = Modifier.clickable {
+                            if (file.isDirectory) {
+                                currentPath = file
+                            } else {
+                                openFile(context = LocalContext.current, file)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+fun openFile(context: Context, file: File) {
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, getMimeType(file))
+        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+    }
+    context.startActivity(intent)
+}
+
+fun getMimeType(file: File): String {
+    val extension = MimeTypeMap.getFileExtensionFromUrl(file.name)
+    return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
+}
+
+<provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.provider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_paths" />
+</provider>
+
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-path name="external_files" path="." />
+</paths>
+</html>
